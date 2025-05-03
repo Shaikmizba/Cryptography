@@ -1,0 +1,54 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+int main() {
+    char plain[100], cipher[100]; // Increased size for safety
+    int key, i, length;
+
+    printf("Enter the plain text: ");
+    scanf("%99s", plain);  // Limit input to 99 characters
+
+    printf("Enter the key value: ");
+    scanf("%d", &key);
+
+    length = strlen(plain);
+
+    printf("\nPLAIN TEXT: %s", plain);
+
+    // Encryption
+    printf("\nENCRYPTED TEXT: ");
+    for (i = 0; i < length; i++) {
+        cipher[i] = plain[i];
+
+        if (isalpha(plain[i])) {
+            if (isupper(plain[i])) {
+                cipher[i] = ((plain[i] - 'A' + key) % 26) + 'A';
+            } else {
+                cipher[i] = ((plain[i] - 'a' + key) % 26) + 'a';
+            }
+        }
+        printf("%c", cipher[i]);
+    }
+
+    // Null-terminate encrypted string
+    cipher[length] = '\0';
+
+    // Decryption
+    printf("\nAFTER DECRYPTION: ");
+    for (i = 0; i < length; i++) {
+        plain[i] = cipher[i];
+
+        if (isalpha(cipher[i])) {
+            if (isupper(cipher[i])) {
+                plain[i] = ((cipher[i] - 'A' - key + 26) % 26) + 'A';
+            } else {
+                plain[i] = ((cipher[i] - 'a' - key + 26) % 26) + 'a';
+            }
+        }
+        printf("%c", plain[i]);
+    }
+
+    printf("\n");
+    return 0;
+}
