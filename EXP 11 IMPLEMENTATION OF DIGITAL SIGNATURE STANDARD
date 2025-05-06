@@ -1,0 +1,67 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+int mod_exp(int base, int exp, int mod) {
+    int result = 1;
+    base = base % mod;
+    while (exp > 0) {
+        if (exp % 2 == 1)
+            result = (result * base) % mod;
+        exp = exp >> 1;
+        base = (base * base) % mod;
+    }
+    return result;
+}
+
+int mod_inverse(int a, int m) {
+    for (int i = 1; i < m; i++) {
+        if ((a * i) % m == 1)
+            return i;
+    }
+    return -1;  // No inverse found
+}
+
+int main() {
+    // Public parameters
+    int p = 23;      // prime modulus
+    int q = 11;      // prime divisor of p-1
+    int g = 2;       // generator
+
+    // Private key
+    int x = 4;       // private key (x < q)
+    
+    // Public key
+    int y = mod_exp(g, x, p); // y = g^x mod p
+
+    // Message hash (simulated as a small int)
+    int h = 9;
+
+    // Random per-message secret
+    int k = 3;
+    int r = mod_exp(g, k, p) % q;
+    int k_inv = mod_inverse(k, q);
+    int s = (k_inv * (h + x * r)) % q;
+
+    printf("Public parameters:\n");
+    printf("p = %d, q = %d, g = %d\n", p, q, g);
+    printf("Private key x = %d\n", x);
+    printf("Public key y = %d\n", y);
+    printf("Message hash h = %d\n", h);
+    printf("Signature (r, s) = (%d, %d)\n", r, s);
+
+    // Verify
+    int w = mod_inverse(s, q);
+    int u1 = (h * w) % q;
+    int u2 = (r * w) % q;
+    int v = ((mod_exp(g, u1, p) * mod_exp(y, u2, p)) % p) % q;
+
+    printf("\nVerification:\n");
+    printf("v = %d\n", v);
+
+    if (v == r)
+        printf("Signature is VALID\n");
+    else
+        printf("Signature is INVALID\n");
+
+    return 0;
+}
