@@ -1,0 +1,86 @@
+#include <stdio.h>
+
+// GCD using Euclidean algorithm
+int gcd(int a, int b) {
+    while (b != 0) {
+        int t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+
+// Extended Euclidean Algorithm
+int gcd_extended(int a, int b, int *x, int *y) {
+    if (a == 0) {
+        *x = 0;
+        *y = 1;
+        return b;
+    }
+
+    int x1, y1;
+    int g = gcd_extended(b % a, a, &x1, &y1);
+
+    *x = y1 - (b / a) * x1;
+    *y = x1;
+    return g;
+}
+
+// Modular inverse
+int mod_inverse(int a, int m) {
+    int x, y;
+    int g = gcd_extended(a, m, &x, &y);
+    if (g != 1)
+        return -1;
+    return (x % m + m) % m;
+}
+
+// Modular exponentiation
+int mod_exp(int base, int exp, int mod) {
+    int result = 1;
+    base %= mod;
+    while (exp > 0) {
+        if (exp % 2 == 1)
+            result = (result * base) % mod;
+        exp /= 2;
+        base = (base * base) % mod;
+    }
+    return result;
+}
+
+int main() {
+    int n = 3599;     // n = p * q (unknown at first)
+    int e = 31;       // public key
+
+    int m = 59;       // Suppose someone tells us a plaintext block is 59
+                      // Try GCD(m, n)
+    int factor = gcd(m, n);
+
+    if (factor == 1) {
+        printf("Plaintext has no common factor with n.\n");
+        return 0;
+    }
+
+    printf("Found common factor with n: %d\n", factor);
+    int p = factor;
+    int q = n / p;
+    printf("Recovered p = %d, q = %d\n", p, q);
+
+    int phi = (p - 1) * (q - 1);
+    int d = mod_inverse(e, phi);
+
+    if (d == -1) {
+        printf("Failed to compute private key.\n");
+        return 1;
+    }
+
+    printf("Recovered private key d = %d\n", d);
+
+    // Test encryption/decryption
+    int plaintext = 42;
+    int ciphertext = mod_exp(plaintext, e, n);
+    int decrypted = mod_exp(ciphertext, d, n);
+
+    printf("Original: %d\nEncrypted: %d\nDecrypted: %d\n", plaintext, ciphertext, decrypted);
+    return 0;
+}
