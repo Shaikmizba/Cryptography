@@ -1,0 +1,142 @@
+#include <stdio.h>
+#include <stdint.h>
+
+// Permutations
+int IP[] = {1, 5, 2, 0, 3, 7, 4, 6};
+int IP_INV[] = {3, 0, 2, 4, 6, 1, 7, 5};
+int P10[] = {2, 4, 1, 6, 3, 9, 0, 8, 7, 5};
+int P8[] = {5, 2, 6, 3, 7, 4, 9, 8};
+int EP[] = {3, 0, 1, 2, 1, 2, 3, 0};
+int P4[] = {1, 3, 2, 0};
+
+// S-boxes
+int S0[4][4] = {
+    {1, 0, 3, 2},
+    {3, 2, 1, 0},
+    {0, 2, 1, 3},
+    {3, 1, 3, 2}
+};
+
+int S1[4][4] = {
+    {0, 1, 2, 3},
+    {2, 0, 1, 3},
+    {3, 0, 1, 0},
+    {2, 1, 0, 3}
+};
+
+// Bit operations
+uint8_t permute(uint8_t in, const int *perm, int n) {
+    uint8_t out = 0;
+    for (int i = 0; i < n; ++i)
+        out |= ((in >> (7 - perm[i])) & 1) << (n - 1 - i);
+    return out;
+}
+
+uint16_t permute10(uint16_t in) {
+    uint16_t out = 0;
+    for (int i = 0; i < 10; ++i)
+        out |= ((in >> (9 - P10[i])) & 1) << (9 - i);
+    return out;
+}
+
+uint8_t permute8(uint16_t in) {
+    uint8_t out = 0;
+    for (int i = 0; i < 8; ++i)
+        out |= ((in >> (9 - P8[i])) & 1) << (7 - i);
+    return out;
+}
+
+uint8_t leftShift5(uint8_t val, int shifts) {
+    return ((val << shifts) | (val >> (5 - shifts))) & 0x1F;
+}
+
+// S-DES key generation
+void generateKeys(uint16_t key10, uint8_t *k1, uint8_t *k2) {
+    uint16_t p10 = permute10(key10);
+    uint8_t left = (p10 >> 5) & 0x1F;
+    uint8_t right = p10 & 0x1F;
+
+    left = leftShift5(left, 1);
+    right = leftShift5(right, 1);
+    *k1 = permute8((left << 5) | right);
+
+    left = leftShift5(left, 2);
+    right = leftShift5(right, 2);
+    *k2 = permute8((left << 5) | right);
+}
+
+uint8_t sboxLookup(int sbox[4][4], uint8_t input) {
+    int row = ((input & 0b1000) >> 2) | (input & 0b0001);
+    int col = (input & 0b0110) >> 1;
+    return sbox[row][col];
+}
+
+uint8_t f(uint8_t r, uint8_t sk) {
+    uint8_t expanded = permute(r, EP, 8);
+    uint8_t xored = expanded ^ sk;
+    uint8_t left = (xored >> 4) & 0x0F;
+    uint8_t right = xored & 0x0F;
+
+    uint8_t s0_val = sboxLookup(S0, left);
+    uint8_t s1_val = sboxLookup(S1, right);
+
+    uint8_t output = permute((s0_val << 2) | s1_val, P4, 4);
+    return output;
+}
+
+uint8_t fk(uint8_t input, uint8_t sk) {
+    uint8_t left = (input >> 4) & 0x0F;
+    uint8_t right = input & 0x0F;
+
+    uint8_t temp = left ^ f(right, sk);
+    return (temp << 4) | right;
+}
+
+uint8_t sdes_encrypt(uint8_t plaintext, uint8_t k1, uint8_t k2) {
+    uint8_t ip = permute(plaintext, IP, 8);
+    uint8_t first = fk(ip, k1);
+    uint8_t swapped = (first << 4) | (first >> 4);
+    uint8_t second = fk(swapped, k2);
+    uint8_t result = permute(second, IP_INV, 8);
+    return result;
+}
+
+uint8_t sdes_decrypt(uint8_t ciphertext, uint8_t k1, uint8_t k2) {
+    // reverse keys
+    return sdes_encrypt(ciphertext, k2, k1);
+}
+
+uint8_t ctr_encrypt_block(uint8_t counter, uint8_t plaintext, uint8_t k1, uint8_t k2) {
+    uint8_t keystream = sdes_encrypt(counter, k1, k2);
+    return keystream ^ plaintext;
+}
+
+int main() {
+    // 10-bit key: 0111111101 -> 0x1FD
+    uint16_t key10 = 0x1FD;
+    uint8_t k1, k2;
+    generateKeys(key10, &k1, &k2);
+
+    uint8_t plaintext[] = {0x01, 0x02, 0x04};
+    uint8_t ciphertext[3];
+    uint8_t decrypted[3];
+    uint8_t counter = 0x00;
+
+    printf("Encrypting in CTR mode using S-DES:\n");
+    for (int i = 0; i < 3; i++) {
+        ciphertext[i] = ctr_encrypt_block(counter, plaintext[i], k1, k2);
+        printf("Plaintext[%d]: %02x -> Ciphertext: %02x\n", i, plaintext[i], ciphertext[i]);
+        counter++;
+    }
+
+    // Reset counter for decryption
+    counter = 0x00;
+    printf("\nDecrypting in CTR mode using S-DES:\n");
+    for (int i = 0; i < 3; i++) {
+        decrypted[i] = ctr_encrypt_block(counter, ciphertext[i], k1, k2);
+        printf("Ciphertext[%d]: %02x -> Decrypted: %02x\n", i, ciphertext[i], decrypted[i]);
+        counter++;
+    }
+
+    return 0;
+}
