@@ -1,0 +1,44 @@
+#include <stdio.h>
+#include <math.h>
+
+// Function to do modular exponentiation
+long long mod_exp(long long base, long long exp, long long mod) {
+    long long result = 1;
+    base %= mod;
+    while (exp > 0) {
+        if (exp % 2)
+            result = (result * base) % mod;
+        exp /= 2;
+        base = (base * base) % mod;
+    }
+    return result;
+}
+
+int main() {
+    // Publicly known values
+    long long q = 353;       // a large prime
+    long long a = 3;         // primitive root modulo q
+
+    // Alice's private key
+    long long xA = 97;
+    // Bob's private key
+    long long xB = 233;
+
+    // Alice computes A = a^xA mod q
+    long long yA = mod_exp(a, xA, q);
+    // Bob computes B = a^xB mod q
+    long long yB = mod_exp(a, xB, q);
+
+    // Exchange yA and yB publicly
+
+    // Each computes the shared secret
+    long long keyA = mod_exp(yB, xA, q);  // Alice computes (B)^xA mod q
+    long long keyB = mod_exp(yA, xB, q);  // Bob computes (A)^xB mod q
+
+    printf("Alice's public value: %lld\n", yA);
+    printf("Bob's public value:   %lld\n", yB);
+    printf("Shared key computed by Alice: %lld\n", keyA);
+    printf("Shared key computed by Bob:   %lld\n", keyB);
+
+    return 0;
+}
