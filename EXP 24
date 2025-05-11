@@ -1,0 +1,85 @@
+#include <stdio.h>
+
+// Step 1: Factor n
+void find_factors(int n, int *p, int *q) {
+    for (int i = 2; i < n; i++) {
+        if (n % i == 0) {
+            *p = i;
+            *q = n / i;
+            return;
+        }
+    }
+}
+
+// Step 2: Extended Euclidean Algorithm
+int gcd_extended(int a, int b, int *x, int *y) {
+    if (a == 0) {
+        *x = 0;
+        *y = 1;
+        return b;
+    }
+
+    int x1, y1;
+    int gcd = gcd_extended(b % a, a, &x1, &y1);
+
+    *x = y1 - (b / a) * x1;
+    *y = x1;
+
+    return gcd;
+}
+
+// Step 3: Modular Inverse
+int mod_inverse(int e, int phi_n) {
+    int x, y;
+    int g = gcd_extended(e, phi_n, &x, &y);
+    if (g != 1)
+        return -1;  // No inverse exists
+    else {
+        // Make sure x is positive
+        return (x % phi_n + phi_n) % phi_n;
+    }
+}
+
+// Step 4: Modular exponentiation
+int mod_exp(int base, int exp, int mod) {
+    int result = 1;
+    base = base % mod;
+    while (exp > 0) {
+        if (exp % 2 == 1)
+            result = (result * base) % mod;
+        exp = exp >> 1;
+        base = (base * base) % mod;
+    }
+    return result;
+}
+
+int main() {
+    int e = 31;
+    int n = 3599;
+    int p, q;
+    
+    find_factors(n, &p, &q);
+    printf("Factors of n: p = %d, q = %d\n", p, q);
+
+    int phi_n = (p - 1) * (q - 1);
+    printf("Euler's totient φ(n) = %d\n", phi_n);
+
+    int d = mod_inverse(e, phi_n);
+    if (d == -1) {
+        printf("Modular inverse does not exist.\n");
+        return 1;
+    }
+
+    printf("Private key d = %d\n", d);
+
+    // Test encryption and decryption
+    int plaintext = 42;
+    int ciphertext = mod_exp(plaintext, e, n);
+    int decrypted = mod_exp(ciphertext, d, n);
+
+    printf("Original message: %d\n", plaintext);
+    printf("Encrypted message: %d\n", ciphertext);
+    printf("Decrypted message: %d\n", decrypted);
+
+    return 0;
+}
