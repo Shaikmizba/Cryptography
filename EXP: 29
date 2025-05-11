@@ -1,0 +1,48 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <stdbool.h>
+
+#define TOTAL_LANES 25            // Total lanes in the SHA-3 state
+#define RATE_LANES 16             // Number of rate lanes (absorption area)
+#define CAPACITY_LANES 9          // Number of capacity lanes (initially zeros)
+
+#define MESSAGE_BLOCK_SIZE 64     // 64 bits per block
+
+// Function to simulate the absorption of a message block into the state
+// It will simulate the effect of the block on the rate portion of the state and diffuses into the capacity portion.
+void absorb_message_block(bool capacity_nonzero[], int *nonzero_count) {
+    // Simulate the absorption by randomly setting bits in the capacity lanes
+    for (int i = 0; i < CAPACITY_LANES; i++) {
+        if (!capacity_nonzero[i]) {
+            // Randomly flip the bit to simulate diffusion
+            if (rand() % 3 == 0) {  // 1 in 3 chance for diffusion to happen
+                capacity_nonzero[i] = true;
+                (*nonzero_count)++;
+            }
+        }
+    }
+}
+
+int main() {
+    bool capacity_nonzero[CAPACITY_LANES] = {false}; // Initially all capacity lanes are zero
+    int blocks = 0;
+    int nonzero_count = 0;
+
+    srand(time(NULL));  // Seed the random number generator
+
+    printf("Simulating SHA-3 absorption ignoring permutations...\n");
+
+    // Simulate the absorption process until all capacity lanes have at least one nonzero bit
+    while (nonzero_count < CAPACITY_LANES) {
+        blocks++;  // Count the number of message blocks processed
+
+        absorb_message_block(capacity_nonzero, &nonzero_count);
+
+        printf("After block %d: %d/%d capacity lanes are non-zero\n", blocks, nonzero_count, CAPACITY_LANES);
+    }
+
+    printf("\nAll capacity lanes became non-zero after %d message blocks.\n", blocks);
+
+    return 0;
+}
