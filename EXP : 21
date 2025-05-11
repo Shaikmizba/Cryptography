@@ -1,0 +1,76 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+
+#define BLOCK_SIZE 8
+#define KEY_SIZE 24
+
+void handleErrors(const char *msg) {
+    fprintf(stderr, "%s\n", msg);
+    exit(EXIT_FAILURE);
+}
+
+// Custom padding: 0x80 followed by 0x00s
+int apply_padding(unsigned char *input, int len, unsigned char *output) {
+    int pad_len = BLOCK_SIZE - (len % BLOCK_SIZE);
+    if (pad_len == 0) pad_len = BLOCK_SIZE;
+
+    memcpy(output, input, len);
+    output[len] = 0x80;
+    memset(output + len + 1, 0x00, pad_len - 1);
+
+    return len + pad_len;
+}
+
+void print_hex(const char *label, unsigned char *data, int len) {
+    printf("%s:", label);
+    for (int i = 0; i < len; i++)
+        printf(" %02x", data[i]);
+    printf("\n");
+}
+
+int encrypt_mode(const EVP_CIPHER *cipher, unsigned char *plaintext, int plaintext_len,
+                 unsigned char *key, unsigned char *iv, unsigned char *ciphertext) {
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    int len, ciphertext_len;
+
+    EVP_EncryptInit_ex(ctx, cipher, NULL, key, iv);
+    EVP_CIPHER_CTX_set_padding(ctx, 0); // Use custom padding
+
+    EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len);
+    ciphertext_len = len;
+
+    EVP_EncryptFinal_ex(ctx, ciphertext + len, &len);
+    ciphertext_len += len;
+
+    EVP_CIPHER_CTX_free(ctx);
+    return ciphertext_len;
+}
+
+int main() {
+    unsigned char key[KEY_SIZE], iv[BLOCK_SIZE];
+    RAND_bytes(key, sizeof(key));
+    RAND_bytes(iv, sizeof(iv));
+
+    unsigned char message[] = "ExampleMsg16Bte"; // 16 bytes, multiple of 8
+    unsigned char padded[64];
+    int padded_len = apply_padding(message, strlen((char *)message), padded);
+
+    unsigned char ciphertext[64];
+
+    // ECB Mode
+    int ecb_len = encrypt_mode(EVP_des_ede3_ecb(), padded, padded_len, key, NULL, ciphertext);
+    print_hex("ECB ciphertext", ciphertext, ecb_len);
+
+    // CBC Mode
+    int cbc_len = encrypt_mode(EVP_des_ede3_cbc(), padded, padded_len, key, iv, ciphertext);
+    print_hex("CBC ciphertext", ciphertext, cbc_len);
+
+    // CFB Mode (no padding required technically, but we pad to show consistency)
+    int cfb_len = encrypt_mode(EVP_des_ede3_cfb64(), padded, padded_len, key, iv, ciphertext);
+    print_hex("CFB ciphertext", ciphertext, cfb_len);
+
+    return 0;
+}
