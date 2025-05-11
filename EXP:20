@@ -1,0 +1,88 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+
+#define BLOCK_SIZE 8
+#define KEY_SIZE 24 // 3DES key
+
+void handleErrors(const char *msg) {
+    fprintf(stderr, "%s\n", msg);
+    exit(EXIT_FAILURE);
+}
+
+int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
+            unsigned char *ciphertext) {
+    EVP_CIPHER_CTX *ctx;
+    int len, ciphertext_len;
+
+    if (!(ctx = EVP_CIPHER_CTX_new()))
+        handleErrors("Error creating context");
+
+    if (1 != EVP_EncryptInit_ex(ctx, EVP_des_ede3_ecb(), NULL, key, NULL))
+        handleErrors("Error initializing encryption");
+
+    EVP_CIPHER_CTX_set_padding(ctx, 1); // Enable PKCS7 padding
+
+    if (1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
+        handleErrors("Error during encryption");
+
+    ciphertext_len = len;
+
+    if (1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
+        handleErrors("Error during final encryption step");
+
+    ciphertext_len += len;
+    EVP_CIPHER_CTX_free(ctx);
+
+    return ciphertext_len;
+}
+
+int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
+            unsigned char *plaintext) {
+    EVP_CIPHER_CTX *ctx;
+    int len, plaintext_len;
+
+    if (!(ctx = EVP_CIPHER_CTX_new()))
+        handleErrors("Error creating context");
+
+    if (1 != EVP_DecryptInit_ex(ctx, EVP_des_ede3_ecb(), NULL, key, NULL))
+        handleErrors("Error initializing decryption");
+
+    EVP_CIPHER_CTX_set_padding(ctx, 1); // Enable PKCS7 padding
+
+    if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len))
+        handleErrors("Error during decryption");
+
+    plaintext_len = len;
+
+    if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len))
+        handleErrors("Error during final decryption step");
+
+    plaintext_len += len;
+    EVP_CIPHER_CTX_free(ctx);
+
+    return plaintext_len;
+}
+
+int main() {
+    unsigned char key[KEY_SIZE];
+    unsigned char *plaintext = (unsigned char *)"Block1__Block2__Block3__"; // 24 bytes
+    unsigned char ciphertext[128];
+    unsigned char decryptedtext[128];
+
+    RAND_bytes(key, sizeof(key));
+
+    int encrypted_len = encrypt(plaintext, strlen((char *)plaintext), key, ciphertext);
+
+    // Simulate bit error in the second block of ciphertext
+    ciphertext[10] ^= 0xFF; // Flip some bits
+
+    int decrypted_len = decrypt(ciphertext, encrypted_len, key, decryptedtext);
+    decryptedtext[decrypted_len] = '\0';
+
+    printf("Decrypted text with error:\n%s\n", decryptedtext);
+
+    return 0;
+}
