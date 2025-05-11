@@ -1,0 +1,69 @@
+#include <stdio.h>
+#include <string.h>
+
+// Modular exponentiation
+int mod_exp(int base, int exp, int mod) {
+    int result = 1;
+    base %= mod;
+    while (exp > 0) {
+        if (exp % 2 == 1)
+            result = (result * base) % mod;
+        exp /= 2;
+        base = (base * base) % mod;
+    }
+    return result;
+}
+
+// Encrypt each character as RSA with large e and n
+void rsa_encrypt_message(const char *msg, int e, int n, int *ciphertext) {
+    for (int i = 0; msg[i] != '\0'; i++) {
+        int m = msg[i] - 'A';  // Map A=0, B=1, ..., Z=25
+        ciphertext[i] = mod_exp(m, e, n);
+    }
+}
+
+// Attacker: build dictionary of c = m^e mod n for m = 0 to 25
+void build_attack_dictionary(int e, int n, int *dict) {
+    for (int m = 0; m < 26; m++) {
+        dict[mod_exp(m, e, n)] = m;
+    }
+}
+
+// Attacker: decrypt intercepted ciphertext using dictionary
+void dictionary_attack(int *ciphertext, int length, int *dict, char *recovered) {
+    for (int i = 0; i < length; i++) {
+        int m = dict[ciphertext[i]];
+        recovered[i] = 'A' + m;
+    }
+    recovered[length] = '\0';
+}
+
+int main() {
+    int e = 17;
+    int n = 3233;  // Example modulus (product of 61 * 53), not secure but used for demonstration
+
+    const char *message = "HELLO";
+    int ciphertext[100];
+
+    printf("Original message: %s\n", message);
+
+    rsa_encrypt_message(message, e, n, ciphertext);
+
+    printf("Encrypted (numeric ciphertexts): ");
+    for (int i = 0; i < strlen(message); i++) {
+        printf("%d ", ciphertext[i]);
+    }
+    printf("\n");
+
+    // Attacker builds dictionary
+    int dict[3233] = {0};
+    build_attack_dictionary(e, n, dict);
+
+    // Attacker uses dictionary to recover the message
+    char recovered[100];
+    dictionary_attack(ciphertext, strlen(message), dict, recovered);
+
+    printf("Recovered by attacker (no private key): %s\n", recovered);
+
+    return 0;
+}
