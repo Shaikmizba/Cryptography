@@ -1,0 +1,81 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+
+#define BLOCK_SIZE 8  // 64 bits per block (8 bytes)
+
+// Function to simulate the CBC MAC encryption (we'll use XOR for simplicity)
+void cbc_mac(uint8_t *message, size_t length, uint8_t *key, uint8_t *mac) {
+    uint8_t previous_block[BLOCK_SIZE] = {0};  // Initially, previous block is zero
+    uint8_t current_block[BLOCK_SIZE];
+    
+    // Process each block
+    for (size_t i = 0; i < length; i += BLOCK_SIZE) {
+        // Copy current block from message
+        memcpy(current_block, message + i, BLOCK_SIZE);
+
+        // XOR with previous block (or IV which is 0 initially)
+        for (int j = 0; j < BLOCK_SIZE; j++) {
+            current_block[j] ^= previous_block[j];
+        }
+
+        // Encrypt with the key (simple XOR operation for encryption)
+        for (int j = 0; j < BLOCK_SIZE; j++) {
+            current_block[j] ^= key[j];
+        }
+
+        // The current block is now the "previous block" for the next iteration
+        memcpy(previous_block, current_block, BLOCK_SIZE);
+    }
+
+    // The final block (previous_block) is the MAC
+    memcpy(mac, previous_block, BLOCK_SIZE);
+}
+
+// Function to simulate the adversary's attack: compute the MAC of X || (X ⊕ T)
+void adversary_attack(uint8_t *X, uint8_t *T, uint8_t *key, uint8_t *result_mac) {
+    uint8_t second_block[BLOCK_SIZE];
+    
+    // Compute second block X ⊕ T
+    for (int i = 0; i < BLOCK_SIZE; i++) {
+        second_block[i] = X[i] ^ T[i];
+    }
+
+    // Now create the two-block message X || (X ⊕ T)
+    uint8_t message[BLOCK_SIZE * 2];
+    memcpy(message, X, BLOCK_SIZE);
+    memcpy(message + BLOCK_SIZE, second_block, BLOCK_SIZE);
+
+    // Compute the MAC for the two-block message
+    cbc_mac(message, BLOCK_SIZE * 2, key, result_mac);
+}
+
+int main() {
+    // Sample 64-bit message X (one block)
+    uint8_t X[BLOCK_SIZE] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
+    
+    // Key for CBC MAC (simulated as 64-bit key)
+    uint8_t key[BLOCK_SIZE] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED, 0xDC, 0xBA};
+    
+    // Compute the MAC for the message X
+    uint8_t T[BLOCK_SIZE];
+    cbc_mac(X, BLOCK_SIZE, key, T);
+    
+    printf("Original MAC (T) for X: ");
+    for (int i = 0; i < BLOCK_SIZE; i++) {
+        printf("%02X ", T[i]);
+    }
+    printf("\n");
+
+    // Now simulate the adversary's attack on X || (X ⊕ T)
+    uint8_t result_mac[BLOCK_SIZE];
+    adversary_attack(X, T, key, result_mac);
+
+    printf("MAC for forged message X || (X ⊕ T): ");
+    for (int i = 0; i < BLOCK_SIZE; i++) {
+        printf("%02X ", result_mac[i]);
+    }
+    printf("\n");
+
+    return 0;
+}
